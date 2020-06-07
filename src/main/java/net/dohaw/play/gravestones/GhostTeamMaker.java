@@ -4,7 +4,6 @@ import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.scoreboard.CollisionRules;
 import org.spongepowered.api.scoreboard.Scoreboard;
 import org.spongepowered.api.scoreboard.Team;
-import org.spongepowered.api.scoreboard.objective.Objective;
 import org.spongepowered.api.text.Text;
 
 public class GhostTeamMaker {

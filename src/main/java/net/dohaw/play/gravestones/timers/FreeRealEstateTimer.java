@@ -5,35 +5,36 @@ import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
-import java.util.UUID;
 import java.util.function.Consumer;
 
 public class FreeRealEstateTimer implements Consumer<Task> {
 
-    private UUID u;
     private GravestoneConfigManager gcm;
     private Location<World> gravestoneLocation;
+    private String gravestoneUUID;
 
-    public FreeRealEstateTimer(GravestoneConfigManager gcm, UUID u, Location<World> gravestoneLocation){
+    public FreeRealEstateTimer(GravestoneConfigManager gcm, String gravestoneUUID, Location<World> gravestoneLocation){
         this.gcm = gcm;
-        this.u = u;
         this.gravestoneLocation = gravestoneLocation;
+        this.gravestoneUUID = gravestoneUUID;
     }
 
     @Override
     public void accept(Task task) {
 
-        if(!gcm.hasAGravestone(u)){
+        gcm.reloadConfig();
+        if(!gcm.isAGravestone(gravestoneLocation)){
             task.cancel();
+            return;
         }
 
-        int timeUntilDisap = gcm.getConfig().getNode("Gravestones", u.toString(), "Time Until Disappearance").getInt();
+        int timeUntilDisap = gcm.getConfig().getNode("Gravestones", gravestoneUUID, "Time Until Disappearance").getInt();
         timeUntilDisap--;
-        gcm.getConfig().getNode("Gravestones", u.toString(), "Time Until Disappearance").setValue(timeUntilDisap);
+        gcm.getConfig().getNode("Gravestones", gravestoneUUID, "Time Until Disappearance").setValue(timeUntilDisap);
         gcm.saveConfig();
 
         if(timeUntilDisap == 0){
-            gcm.removeGravestone(u);
+            gcm.removeGravestone(gravestoneUUID);
             gravestoneLocation.removeBlock();
             task.cancel();
         }
