@@ -3,7 +3,6 @@ package net.dohaw.play.gravestones;
 import net.dohaw.play.gravestones.files.GravestoneConfigManager;
 import net.dohaw.play.gravestones.runnables.DeathTitle;
 import net.dohaw.play.gravestones.timers.GravestonesTimer;
-import org.spongepowered.api.Sponge;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.effect.potion.PotionEffect;
@@ -27,7 +26,6 @@ import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.item.inventory.entity.MainPlayerInventory;
 import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.title.Title;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
@@ -47,7 +45,7 @@ public class GravestoneListener {
     }
 
     @Listener
-    public void onPlayerDeath(DestructEntityEvent e){
+    public void onPlayerDeath(DestructEntityEvent.Death e){
         Entity entityDied = e.getTargetEntity();
         if(entityDied instanceof Player){
             Player deadPlayer = (Player) entityDied;
@@ -62,19 +60,18 @@ public class GravestoneListener {
                     playerItems.add(slot.peek().get());
                }
             }
-            GravestoneConfigManager gcm = new GravestoneConfigManager();
 
+            GravestoneConfigManager gcm = new GravestoneConfigManager();
             /*
                 Giving the Gravestones a UUID to differentiate between multiple gravestones of a player
              */
             UUID gravestoneUUID = UUID.randomUUID();
             gcm.addGravestoneToConfig(deadPlayer.getLocation(), deadPlayer.getUniqueId(), playerItems, gravestoneUUID);
-            Task.builder().execute(new GravestonesTimer(plugin, deadPlayer.getUniqueId(), locationDied, gravestoneUUID))
+            Task.builder().execute(new GravestonesTimer(plugin, locationDied, gravestoneUUID.toString()))
                     .intervalTicks(1200L)
                     .delayTicks(1200L)
                     .name("Gravestone Claim Timer for owner UUID: " + deadPlayer.getUniqueId().toString())
                     .submit(plugin);
-
 
         }
     }
@@ -89,6 +86,7 @@ public class GravestoneListener {
         Player player = e.getTargetEntity();
         List<PotionEffect> effects = new ArrayList<>();
         effects.add(PotionEffect.builder().particles(false).potionType(PotionEffectTypes.INVISIBILITY).amplifier(1).duration(Integer.MAX_VALUE).build());
+        effects.add(PotionEffect.builder().particles(false).potionType(PotionEffectTypes.SPEED).amplifier(1).duration(Integer.MAX_VALUE).build());
         player.offer(Keys.POTION_EFFECTS, effects);
         player.sendMessage(Text.of("You are dead! To be revived, either find a healer or go find your death totem!"));
         giveDeathTitle(player);
@@ -132,11 +130,10 @@ public class GravestoneListener {
             if(!e.getTargetBlock().getState().getType().equals(BlockTypes.COBBLESTONE_WALL)){
                 e.setCancelled(true);
             }else{
-                if(gcm.hasAGravestone(p.getUniqueId())){
-
-                    Location<World> gravestoneLocation = e.getTargetBlock().getLocation().get();
+                Location<World> gravestoneLocation = e.getTargetBlock().getLocation().get();
+                if(gcm.isAGravestone(gravestoneLocation)){
                     if(gcm.ifIsGravestoneOwner(gravestoneLocation, p.getUniqueId())){
-                        List<ItemStack> playerItems = gcm.getItems(p.getUniqueId());
+                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation, p.getUniqueId());
 
                         for(ItemStack item : playerItems){
                             p.getInventory().offer(item);
@@ -147,10 +144,12 @@ public class GravestoneListener {
                         }
 
                         gravestoneLocation.setBlockType(BlockTypes.AIR);
-                        gcm.removeGravestone(p.getUniqueId());
+
+                        String gravestoneUUID = gcm.getGravestoneUUID(gravestoneLocation, p.getUniqueId());
+                        gcm.removeGravestone(gravestoneUUID);
 
                     }else if(gcm.isFreeRealEstate(gravestoneLocation)){
-                        List<ItemStack> playerItems = gcm.getItems(gcm.getGravestoneUUIDFromLocation(gravestoneLocation));
+                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation, p.getUniqueId());
                         for(ItemStack item : playerItems){
                             p.getInventory().offer(item);
                         }
@@ -221,6 +220,11 @@ public class GravestoneListener {
     public void onPlayerJoin(ClientConnectionEvent.Join e){
         Player playerJoined = e.getTargetEntity();
         ghost.addPlayerToScoreboard(playerJoined);
+
+        if(Utils.isADeadPlayer(playerJoined)){
+            giveDeathTitle(playerJoined);
+        }
+
     }
 
     private void giveDeathTitle(Player deadPlayer){
