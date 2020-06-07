@@ -52,13 +52,28 @@ public class GravestoneListener {
             Location<World> locationDied = deadPlayer.getLocation();
 
             locationDied.setBlockType(BlockTypes.COBBLESTONE_WALL);
-            Inventory inv = deadPlayer.getInventory().query(MainPlayerInventory.class);
+            Inventory mainInventory = deadPlayer.getInventory().query(MainPlayerInventory.class);
+
 
             List<ItemStack> playerItems = new ArrayList<>();
-            for (Inventory slot : inv.slots()) {
+            for (Inventory slot : mainInventory.slots()) {
                if(slot.peek().isPresent()){
                     playerItems.add(slot.peek().get());
                }
+            }
+
+            List<Optional<ItemStack>> armor = new ArrayList<>();
+            armor.add(deadPlayer.getHelmet());
+            armor.add(deadPlayer.getChestplate());
+            armor.add(deadPlayer.getLeggings());
+            armor.add(deadPlayer.getBoots());
+
+            for(Optional<ItemStack> armorPiece : armor){
+                if(armorPiece.isPresent()){
+                    if(armorPiece.get().getQuantity() != 0){
+                        playerItems.add(armorPiece.get());
+                    }
+                }
             }
 
             GravestoneConfigManager gcm = new GravestoneConfigManager();
@@ -124,8 +139,14 @@ public class GravestoneListener {
     @Listener
     public void onPlayerInteract(InteractBlockEvent.Secondary e){
         Optional<Player> optPlayer = e.getCause().first(Player.class);
+
         if(optPlayer.isPresent()){
             Player p = optPlayer.get();
+
+            if(!Utils.isADeadPlayer(p)){
+                return;
+            }
+
             GravestoneConfigManager gcm = new GravestoneConfigManager();
             if(!e.getTargetBlock().getState().getType().equals(BlockTypes.COBBLESTONE_WALL)){
                 e.setCancelled(true);
@@ -133,7 +154,7 @@ public class GravestoneListener {
                 Location<World> gravestoneLocation = e.getTargetBlock().getLocation().get();
                 if(gcm.isAGravestone(gravestoneLocation)){
                     if(gcm.ifIsGravestoneOwner(gravestoneLocation, p.getUniqueId())){
-                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation, p.getUniqueId());
+                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation);
 
                         for(ItemStack item : playerItems){
                             p.getInventory().offer(item);
@@ -149,11 +170,12 @@ public class GravestoneListener {
                         gcm.removeGravestone(gravestoneUUID);
 
                     }else if(gcm.isFreeRealEstate(gravestoneLocation)){
-                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation, p.getUniqueId());
+                        List<ItemStack> playerItems = gcm.getGravestoneItems(gravestoneLocation);
                         for(ItemStack item : playerItems){
                             p.getInventory().offer(item);
                         }
                         gravestoneLocation.setBlockType(BlockTypes.AIR);
+                        gcm.removeGravestone(gcm.getGravestoneUUIDFromLocation(gravestoneLocation).toString());
                     }
                 }
             }

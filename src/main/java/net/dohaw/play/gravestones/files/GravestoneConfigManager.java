@@ -8,6 +8,7 @@ import org.spongepowered.api.CatalogTypes;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.item.ItemType;
+import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.item.enchantment.Enchantment;
 import org.spongepowered.api.item.enchantment.EnchantmentType;
 import org.spongepowered.api.item.inventory.ItemStack;
@@ -83,6 +84,7 @@ public class GravestoneConfigManager {
             String id = itemType.getId();
             int amount = item.getQuantity();
 
+
             config.getNode("Gravestones", gravestoneUUID.toString(), "Items", itemNumS, "id").setValue(id);
             config.getNode("Gravestones", gravestoneUUID.toString(), "Items", itemNumS, "Amount").setValue(amount);
 
@@ -109,6 +111,11 @@ public class GravestoneConfigManager {
             }
 
             Optional<List<Enchantment>> opEnchants = item.get(Keys.ITEM_ENCHANTMENTS);
+
+            if(item.getType().equals(ItemTypes.ENCHANTED_BOOK)){
+                opEnchants = item.get(Keys.STORED_ENCHANTMENTS);
+            }
+
             if(opEnchants.isPresent()){
                 List<Enchantment> enchantments = opEnchants.get();
                 int enchantmentNum = 1;
@@ -118,6 +125,7 @@ public class GravestoneConfigManager {
                     enchantmentNum++;
                 }
             }
+
             itemNum++;
         }
 
@@ -155,7 +163,7 @@ public class GravestoneConfigManager {
             int x = config.getNode("Gravestones", gravestoneUUID, "Location", "X").getInt();
             int y = config.getNode("Gravestones", gravestoneUUID, "Location", "Y").getInt();
             int z = config.getNode("Gravestones", gravestoneUUID, "Location", "Z").getInt();
-            Location<World> gravestoneLocation = new Location<World>(world, x, y, z);
+            Location<World> gravestoneLocation = new Location(world, x, y, z);
             Location<World> normalizeLocationClicked = Utils.normalize(locationClicked);
             if(gravestoneLocation.equals(normalizeLocationClicked)){
                 return gravestoneUUID;
@@ -164,9 +172,9 @@ public class GravestoneConfigManager {
         return null;
     }
 
-    public List<ItemStack> getGravestoneItems(Location<World> locationClicked, UUID u){
+    public List<ItemStack> getGravestoneItems(Location<World> locationClicked){
 
-        String gravestoneUUIDClicked = getGravestoneUUID(locationClicked, u);
+        String gravestoneUUIDClicked = getGravestoneUUIDFromLocation(locationClicked).toString();
         Map<Object, ? extends CommentedConfigurationNode> section = config.getNode("Gravestones", gravestoneUUIDClicked, "Items").getChildrenMap();
         List<ItemStack> items = new ArrayList<>();
 
@@ -216,7 +224,11 @@ public class GravestoneConfigManager {
                         Enchantment enchant = Enchantment.builder().type(enchantmentType).level(level).build();
                         enchantments.add(enchant);
                     }
-                    item.offer(Keys.ITEM_ENCHANTMENTS, enchantments);
+                    if(item.getType().equals(ItemTypes.ENCHANTED_BOOK)){
+                        item.offer(Keys.STORED_ENCHANTMENTS, enchantments);
+                    }else{
+                        item.offer(Keys.ITEM_ENCHANTMENTS, enchantments);
+                    }
                 }
 
                 items.add(item);
