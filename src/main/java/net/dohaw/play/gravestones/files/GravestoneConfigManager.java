@@ -1,6 +1,7 @@
 package net.dohaw.play.gravestones.files;
 
 import net.dohaw.play.gravestones.Gravestones;
+import net.dohaw.play.gravestones.Utils;
 import net.dohaw.play.gravestones.timers.GravestonesTimer;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
@@ -57,9 +58,11 @@ public class GravestoneConfigManager {
         }
     }
 
-    public void addGravestoneToConfig(Location<World> loc, UUID deadPlayerUUID, List<ItemStack> items) {
+    public void addGravestoneToConfig(Location<World> loc, UUID deadPlayerUUID, List<ItemStack> items, UUID gravestoneUUID) {
 
-        World world = (World) loc.getExtent();
+        config.getNode("Gravestones", deadPlayerUUID.toString(), "Owner").setValue(deadPlayerUUID.toString());
+
+        World world = loc.getExtent();
         config.getNode("Gravestones", deadPlayerUUID.toString(), "Location", "World").setValue(world.getName());
         config.getNode("Gravestones", deadPlayerUUID.toString(), "Location", "X").setValue(loc.getBlockX());
         config.getNode("Gravestones", deadPlayerUUID.toString(), "Location", "Y").setValue(loc.getBlockY());
@@ -191,10 +194,12 @@ public class GravestoneConfigManager {
         int y = config.getNode("Gravestones", uuid.toString(), "Location", "Y").getInt();
         int z = config.getNode("Gravestones", uuid.toString(), "Location", "Z").getInt();
         Location<World> ownersGravestone = new Location(world, x, y, z);
-        if(ownersGravestone.equals(loc)){
-            return true;
-        }
-        return false;
+        //Normalizes the gravestone location so that it's getting the rough values of the block's x, y, and z instead of the precise values.
+        // ~~ Rough values are stored in config, not precise values i.e. #getBlockX
+        Location<World> normalizedLocation = Utils.normalize(loc);
+        Sponge.getServer().getBroadcastChannel().send(Text.of(ownersGravestone.toString()));
+        Sponge.getServer().getBroadcastChannel().send(Text.of(normalizedLocation.toString()));
+        return normalizedLocation.equals(ownersGravestone);
     }
 
     /*

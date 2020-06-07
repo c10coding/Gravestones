@@ -14,13 +14,12 @@ public class DeathTitle implements Consumer<Task> {
 
     public DeathTitle(Player deadPlayer){
         this.deadPlayer = deadPlayer;
-
-
     }
 
     @Override
     public void accept(Task task) {
-
+        Title deathTitle = Title.builder().actionBar(Text.of("You are dead...")).stay(1).build();
+        deadPlayer.sendTitle(deathTitle);
         if(!Utils.isADeadPlayer(deadPlayer)){
             deadPlayer.resetTitle();
             task.cancel();

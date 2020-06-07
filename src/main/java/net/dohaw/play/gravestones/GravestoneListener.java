@@ -22,10 +22,8 @@ import org.spongepowered.api.event.entity.living.humanoid.player.RespawnPlayerEv
 import org.spongepowered.api.event.item.inventory.ChangeInventoryEvent;
 import org.spongepowered.api.event.item.inventory.DropItemEvent;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
-import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.item.inventory.Inventory;
 import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
 import org.spongepowered.api.item.inventory.entity.MainPlayerInventory;
 import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.text.Text;
@@ -36,6 +34,7 @@ import org.spongepowered.api.world.World;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class GravestoneListener {
 
@@ -52,7 +51,6 @@ public class GravestoneListener {
         Entity entityDied = e.getTargetEntity();
         if(entityDied instanceof Player){
             Player deadPlayer = (Player) entityDied;
-            deadPlayer.sendMessage(Text.of("You have died! To be revived, either find a healer or go find your death totem!"));
             Location<World> locationDied = deadPlayer.getLocation();
 
             locationDied.setBlockType(BlockTypes.COBBLESTONE_WALL);
@@ -65,14 +63,18 @@ public class GravestoneListener {
                }
             }
             GravestoneConfigManager gcm = new GravestoneConfigManager();
-            gcm.addGravestoneToConfig(deadPlayer.getLocation(), deadPlayer.getUniqueId(), playerItems);
-            Task.builder().execute(new GravestonesTimer(plugin, deadPlayer.getUniqueId(), locationDied))
+
+            /*
+                Giving the Gravestones a UUID to differentiate between multiple gravestones of a player
+             */
+            UUID gravestoneUUID = UUID.randomUUID();
+            gcm.addGravestoneToConfig(deadPlayer.getLocation(), deadPlayer.getUniqueId(), playerItems, gravestoneUUID);
+            Task.builder().execute(new GravestonesTimer(plugin, deadPlayer.getUniqueId(), locationDied, gravestoneUUID))
                     .intervalTicks(1200L)
                     .delayTicks(1200L)
                     .name("Gravestone Claim Timer for owner UUID: " + deadPlayer.getUniqueId().toString())
                     .submit(plugin);
 
-            giveDeathTitle(deadPlayer);
 
         }
     }
@@ -88,13 +90,8 @@ public class GravestoneListener {
         List<PotionEffect> effects = new ArrayList<>();
         effects.add(PotionEffect.builder().particles(false).potionType(PotionEffectTypes.INVISIBILITY).amplifier(1).duration(Integer.MAX_VALUE).build());
         player.offer(Keys.POTION_EFFECTS, effects);
-        String itemTypeID = "umm3185118519:sulfur_ore";
-        Optional<ItemType> opItem = Sponge.getGame().getRegistry().getType(ItemType.class, itemTypeID);
-        if(opItem.isPresent()){
-            ItemStackSnapshot itemSnapshot = opItem.get().getTemplate();
-            ItemStack item = itemSnapshot.createStack();
-            player.getInventory().offer(item);
-        }
+        player.sendMessage(Text.of("You are dead! To be revived, either find a healer or go find your death totem!"));
+        giveDeathTitle(player);
     }
 
     @Listener
@@ -137,28 +134,27 @@ public class GravestoneListener {
             }else{
                 if(gcm.hasAGravestone(p.getUniqueId())){
 
-                    Location gravestoneLocation = e.getTargetBlock().getLocation().get();
+                    Location<World> gravestoneLocation = e.getTargetBlock().getLocation().get();
                     if(gcm.ifIsGravestoneOwner(gravestoneLocation, p.getUniqueId())){
-
                         List<ItemStack> playerItems = gcm.getItems(p.getUniqueId());
+
                         for(ItemStack item : playerItems){
                             p.getInventory().offer(item);
                         }
 
-                        gravestoneLocation.removeBlock();
                         if(Utils.isADeadPlayer(p)){
                             p.offer(Keys.POTION_EFFECTS, new ArrayList<>());
                         }
+
+                        gravestoneLocation.setBlockType(BlockTypes.AIR);
                         gcm.removeGravestone(p.getUniqueId());
 
-                    }else{
-                        if(gcm.isFreeRealEstate(gravestoneLocation)){
-                            List<ItemStack> playerItems = gcm.getItems(gcm.getGravestoneUUIDFromLocation(gravestoneLocation));
-                            for(ItemStack item : playerItems){
-                                p.getInventory().offer(item);
-                            }
-                            gravestoneLocation.setBlockType(BlockTypes.AIR);
+                    }else if(gcm.isFreeRealEstate(gravestoneLocation)){
+                        List<ItemStack> playerItems = gcm.getItems(gcm.getGravestoneUUIDFromLocation(gravestoneLocation));
+                        for(ItemStack item : playerItems){
+                            p.getInventory().offer(item);
                         }
+                        gravestoneLocation.setBlockType(BlockTypes.AIR);
                     }
                 }
             }
@@ -170,17 +166,18 @@ public class GravestoneListener {
         Optional<Player> optPlayer = e.getCause().first(Player.class);
         if(optPlayer.isPresent()){
             Player player = optPlayer.get();
-            if(Utils.isADeadPlayer(player)){
-                if(e.getTargetEntity() instanceof Villager){
-                    Villager potentialHealer = (Villager) e.getTargetEntity();
-                    Optional<Boolean> optIsAIEnabled = potentialHealer.get(Keys.AI_ENABLED);
-                    if(optIsAIEnabled.isPresent()){
-                        boolean isAIEnabled = optIsAIEnabled.get();
-                        if(isAIEnabled){
+            if(e.getTargetEntity() instanceof Villager){
+                Villager potentialHealer = (Villager) e.getTargetEntity();
+                Optional<Boolean> optIsAIEnabled = potentialHealer.get(Keys.AI_ENABLED);
+                boolean isAIEnabled = optIsAIEnabled.get();
+
+                if(optIsAIEnabled.isPresent()) {
+                    if(isAIEnabled) {
+                        if (Utils.isADeadPlayer(player)) {
                             player.offer(Keys.POTION_EFFECTS, new ArrayList<>());
                             player.sendMessage(Text.of("You have been revived!"));
-                            e.setCancelled(true);
                         }
+                        e.setCancelled(true);
                     }
                 }
             }
@@ -188,7 +185,7 @@ public class GravestoneListener {
     }
 
     @Listener
-    public void onPlayerPickup(ChangeInventoryEvent.Pickup e){
+    public void onPlayerPickup(ChangeInventoryEvent.Pickup.Pre e){
         Optional<Player> optPlayer = e.getCause().first(Player.class);
         if(optPlayer.isPresent()){
             Player p = optPlayer.get();
@@ -226,12 +223,8 @@ public class GravestoneListener {
         ghost.addPlayerToScoreboard(playerJoined);
     }
 
-
-
     private void giveDeathTitle(Player deadPlayer){
         Task.builder().execute(new DeathTitle(deadPlayer)).intervalTicks(5L).delayTicks(0).submit(plugin);
-        Title deathTitle = Title.builder().actionBar(Text.of("You are dead...")).stay(Integer.MAX_VALUE).build();
-        deadPlayer.sendTitle(deathTitle);
     }
 
 }

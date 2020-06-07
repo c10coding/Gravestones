@@ -62,7 +62,7 @@ public class Gravestones {
             Optional<Asset> optAsset = container.getAsset(assetName);
             if(optAsset.isPresent()){
                 try {
-                    optAsset.get().copyToFile(path, true, false);
+                    optAsset.get().copyToFile(path, false, true);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

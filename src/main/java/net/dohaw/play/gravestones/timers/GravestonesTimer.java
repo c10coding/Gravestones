@@ -17,7 +17,7 @@ public class GravestonesTimer implements Consumer<Task> {
     private GravestoneConfigManager gcm = new GravestoneConfigManager();
     private Gravestones plugin;
 
-    public GravestonesTimer(Gravestones plugin, UUID u, Location<World> gravestoneLocation){
+    public GravestonesTimer(Gravestones plugin, UUID u, Location<World> gravestoneLocation, UUID gravestonesUUID){
         this.u = u;
         this.gravestoneLocation = gravestoneLocation;
         this.plugin = plugin;
