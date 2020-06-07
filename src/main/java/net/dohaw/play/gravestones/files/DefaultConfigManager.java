@@ -41,4 +41,11 @@ public class DefaultConfigManager {
         return config.getNode("Gravestone Claim Time Limit").getInt();
     }
 
+    /*
+    The time amount the Gravestone is free real estate
+     */
+    public int getGravestoneTimeAdditive(){
+        return config.getNode("Gravestone Total Time Additive").getInt();
+    }
+
 }

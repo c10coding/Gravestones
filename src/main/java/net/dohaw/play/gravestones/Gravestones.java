@@ -49,7 +49,7 @@ public class Gravestones {
     }
 
     private void registerListeners(){
-        Sponge.getGame().getEventManager().registerListeners(this, new GravestoneListener());
+        Sponge.getGame().getEventManager().registerListeners(this, new GravestoneListener(this));
     }
 
     /*
